@@ -11,6 +11,7 @@
     "dev": "node --watch server/server.mjs",
     "start": "node server/server.mjs",
     "ai:arena": "node scripts/ai-arena.mjs",
+    "ai:train": "node scripts/train-rl.mjs",
     "test": "node --test --test-reporter=spec tests/*.test.mjs",
     "test:coverage": "node --test --experimental-test-coverage tests/*.test.mjs"
   }

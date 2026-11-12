@@ -109,3 +109,36 @@ test("V2 调度会把固定线程池分成经典增强与概率机会节点通�
   assert.ok(result.threads <= 4);
   assert.ok(result.quanta >= 2);
 });
+
+test("V3 能把完全明棋时的真人走法预判用于同一线程池中的正式搜索", async (t) => {
+  const scheduler = new AISearchScheduler({ workerCount: 2, quantumMs: 35 });
+  t.after(() => scheduler.close());
+  const board = Array(32).fill(null);
+  board[0] = { ...makePiece("dog", "blue"), revealed: true };
+  board[31] = { ...makePiece("tiger", "red"), revealed: true };
+  const game = createGame({ playerIds: ["a", "b"], board, initialHealth: 3, rng: () => 0 });
+  const state = publicStateForAI(game);
+  const future = structuredClone(state);
+  applySimulatedAction(future, { type: "move", from: 0, to: 1 });
+  const ponder = scheduler.submit({
+    id: "ponder-rl", aiVersion: "v3", mode: "ponder", publicState: state,
+    color: "red", seed: 9, wallTimeMs: 3_000,
+  });
+  const deadline = Date.now() + 2_500;
+  while ((scheduler.snapshot().jobs[0]?.cachedStates ?? 0) < 2 && Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 20));
+  }
+  const cache = scheduler.harvest("ponder-rl", future);
+  await ponder;
+  assert.equal(cache?.method, "rl-rollout");
+  assert.ok(cache.ponderIterations > 0);
+  const result = await scheduler.submit({
+    id: "turn-rl", aiVersion: "v3", publicState: future, color: "red", seed: 10,
+    initialResult: cache, timeLimitMs: 200,
+  });
+  assert.equal(result.aiVersion, "v3");
+  assert.equal(result.method, "parallel-rl-rollout");
+  assert.ok(result.iterations > 0 && result.threads <= 2);
+  assert.equal(result.ponderIterations, cache.ponderIterations);
+  assert.equal(result.action.from, 31);
+});

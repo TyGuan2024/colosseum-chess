@@ -152,3 +152,37 @@ test("已结束对局通过 WebSocket 查询并在服务器重启后继续存在
   assert.equal(afterRestart.records[0].roomName, "重启保留测试");
   viewer.socket.close();
 });
+
+test("局域网玩家可选择 V3，与它对弈并在回放中查看 AI 版本", async (t) => {
+  const directory = await mkdtemp(join(tmpdir(), "jungle-v3-room-"));
+  const server = createGameServer({ historyFile: join(directory, "history.json"), aiSearchTimeMs: 20 });
+  t.after(async () => {
+    await server.close();
+    await rm(directory, { recursive: true, force: true });
+  });
+  const address = await server.listen({ port: 0, host: "127.0.0.1" });
+  const host = socketClient(`ws://127.0.0.1:${address.port}/ws`, "v3-room-host", "训练对手测试");
+  await host.opened;
+  host.send({ type: "create_room", name: "强化学习实战" });
+  await host.waitFor((message) => message.type === "room");
+  host.send({ type: "set_ai_version", version: "v3" });
+  host.send({ type: "set_rule", ruleId: "snake", enabled: true });
+  host.send({ type: "set_rule", ruleId: "football-poison", enabled: true });
+  host.send({ type: "add_ai" });
+  const seated = await host.waitFor((message) => message.room?.players.some((player) => player?.isAI));
+  assert.equal(seated.room.players.find((player) => player?.isAI).aiVersion, "v3");
+  host.send({ type: "set_ready", ready: true });
+  const { room: { game } } = await host.waitFor((message) => message.room?.game?.status === "playing");
+  if (game.youColor === game.turn) host.send({ type: "flip", index: 0, version: game.version });
+  const { room } = await host.waitFor((message) => message.room?.game?.lastAction?.isAI);
+  assert.equal(room.game.lastAction.ai.version, "v3");
+  assert.match(room.game.lastAction.ai.method, /rl|policy|v3/);
+  host.send({ type: "resign", version: room.game.version });
+  await host.waitFor((message) => message.room?.game?.status === "finished");
+  host.send({ type: "history_get", id: game.id });
+  const { record } = await host.waitFor((message) => message.type === "history_record");
+  assert.equal(record.players.find((player) => player.isAI).aiVersion, "v3");
+  assert.ok(record.frames.some((frame) => frame.action?.ai?.version === "v3"));
+  assert.deepEqual([...record.ruleIds].sort(), ["football-poison", "snake"]);
+  host.socket.close();
+});

@@ -1545,13 +1545,13 @@ input.replay-progress,
 
 .ai-version-options {
   display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 3%;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 2%;
 }
 
 .ai-version-options button {
   display: grid;
-  grid-template-columns: auto 1fr;
+  justify-items: center;
   align-items: center;
   gap: 0.45em;
   padding: 0.62em 0.7em;

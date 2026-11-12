@@ -595,9 +595,11 @@ function renderRoom() {
     button.setAttribute("aria-pressed", String(selected));
     button.disabled = settingsLocked;
   }
-  elements.aiVersionDescription.textContent = room.aiVersion === "v1"
-    ? "V1：保留原版 SO-ISMCTS 与 alpha-beta 终局搜索。"
-    : "V2：机会节点概率搜索、隐式极小极大备份、吃子延伸与强化终局搜索。";
+  elements.aiVersionDescription.textContent = {
+    v1: "经典版使用信息集搜索，残局使用 alpha-beta 搜索。",
+    v2: "根据剩余暗子的概率推演，并搜索连续吃子的应对。",
+    v3: "使用自我对弈训练的策略评估走法，模拟双方应对后落子。",
+  }[room.aiVersion];
   elements.ruleSetSetting.disabled = settingsLocked || room.status === "playing";
   elements.ruleSetOptions.replaceChildren();
   for (const rule of room.availableRules ?? []) {

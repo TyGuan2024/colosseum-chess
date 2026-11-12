@@ -398,7 +398,7 @@ export class RoomManager {
     if (room.hostId !== client.id) throw new LobbyError("host_only", "只有房主可以选择 AI 版本");
     if (room.status === "playing") throw new LobbyError("game_in_progress", "对局中不能更换 AI 版本");
     const version = String(value ?? "");
-    if (normalizeAIVersion(version) !== version) throw new LobbyError("bad_ai_version", "AI 版本必须是 V1 或 V2");
+    if (normalizeAIVersion(version) !== version) throw new LobbyError("bad_ai_version", "AI 版本必须是 V1、V2 或 V3");
     const hasReadyHuman = [...room.ready].some((id) => !this.clients.get(id)?.isAI);
     if (hasReadyHuman) throw new LobbyError("players_ready", "请先取消准备再更换 AI 版本");
     room.aiVersion = version;

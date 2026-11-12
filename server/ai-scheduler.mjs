@@ -10,6 +10,8 @@ import { legalActionsFor } from "./game-engine.mjs";
 
 export const AI_SEARCH_QUANTUM_MS = 400;
 
+const SAMPLING_METHOD = { v1: "so-ismcts", v2: "belief-mcts-v2", v3: "rl-rollout" };
+
 export function defaultAIWorkerCount(parallelism = availableParallelism()) {
   return Math.max(1, Math.floor(Math.max(1, Number(parallelism) || 1) / 2));
 }
@@ -50,7 +52,7 @@ function aggregateISMCTS(results, elapsedMs, threadCount, aiVersion = "v1") {
     .sort((a, b) => b.visits - a.visits || b.score - a.score || b.prior - a.prior);
   return {
     action: ranked[0]?.action ?? null,
-    method: aiVersion === "v2" ? "parallel-belief-mcts-v2" : "parallel-so-ismcts",
+    method: `parallel-${SAMPLING_METHOD[aiVersion]}`,
     aiVersion,
     elapsedMs,
     iterations,
@@ -194,13 +196,13 @@ export class AISearchScheduler {
       startedAt,
       deadline: startedAt + budget,
       mode,
-      aiVersion: aiVersion === "v2" ? "v2" : "v1",
+      aiVersion: ["v2", "v3"].includes(aiVersion) ? aiVersion : "v1",
       hiddenCount,
       rootActionKeys,
       nextRootShard: 0,
       nextSequence: 0,
       inFlight: 0,
-      results: initialResult && hiddenCount ? [{ result: initialResult, workerIndex: -1 }] : [],
+      results: initialResult && (hiddenCount || aiVersion === "v3") ? [{ result: initialResult, workerIndex: -1 }] : [],
       ponderCache: new Map(),
       ponderIterations: 0,
       quantaCompleted: 0,
@@ -242,11 +244,12 @@ export class AISearchScheduler {
         aiVersion: job.aiVersion,
       };
       if (job.aiVersion === "v2") options.v2Lane = sequence % 8 === 0 ? "belief" : "classic";
-      if (job.aiVersion === "v2" && options.v2Lane === "classic" && job.results.length) {
+      if (job.aiVersion === "v3") options.searchQuantum = true;
+      if ((job.aiVersion === "v3" || options.v2Lane === "classic") && job.results.length) {
         options.initialCandidates = accumulatedRootCandidates(job.results);
       }
       if (job.mode === "ponder") options.ponder = true;
-      if (job.mode === "search" && (!job.hiddenCount || (job.aiVersion === "v2" && job.hiddenCount === 1)) && job.rootActionKeys.length) {
+      if (job.mode === "search" && job.aiVersion !== "v3" && (!job.hiddenCount || (job.aiVersion === "v2" && job.hiddenCount === 1)) && job.rootActionKeys.length) {
         options.rootActionKeys = [job.rootActionKeys[job.nextRootShard % job.rootActionKeys.length]];
         job.nextRootShard += 1;
       }
@@ -269,7 +272,7 @@ export class AISearchScheduler {
       job.inFlight = Math.max(0, job.inFlight - 1);
       if (message.ok && message.result) {
         job.quantaCompleted += 1;
-        if (["ponder-ismcts", "ponder-belief-mcts-v2", "ponder-hybrid-mcts-v2"].includes(message.result.method)) {
+        if (["ponder-ismcts", "ponder-belief-mcts-v2", "ponder-hybrid-mcts-v2", "ponder-rl-rollout"].includes(message.result.method)) {
           job.ponderIterations += message.result.iterations ?? 0;
           for (const state of message.result.ponderStates ?? []) {
             const cached = job.ponderCache.get(state.key) ?? { candidates: new Map(), visits: 0 };
@@ -280,7 +283,7 @@ export class AISearchScheduler {
         } else {
           job.results.push({ result: message.result, workerIndex: slot.index });
         }
-        if (job.mode === "search" && (message.result.method === "forced-win" || message.result.method === "forced-win-v2")) {
+        if (job.mode === "search" && ["forced-win", "forced-win-v2", "forced-win-v3"].includes(message.result.method)) {
           this.finish(job, {
             ...message.result,
             elapsedMs: Date.now() - job.startedAt,
@@ -297,7 +300,7 @@ export class AISearchScheduler {
     const elapsedMs = Math.min(MAX_AI_SEARCH_MS, Date.now() - job.startedAt);
     const valid = job.results.filter((entry) => entry.result?.action);
     if (!valid.length) return null;
-    const ismcts = valid.filter((entry) => ["so-ismcts", "belief-mcts-v2", "hybrid-mcts-v2"].includes(entry.result.method));
+    const ismcts = valid.filter((entry) => ["so-ismcts", "belief-mcts-v2", "hybrid-mcts-v2", "rl-rollout"].includes(entry.result.method));
     if (ismcts.length) return aggregateISMCTS(ismcts, elapsedMs, job.workersUsed.size, job.aiVersion);
     const endgames = valid.filter((entry) => ["alpha-beta", "alpha-beta-v2", "deduced-alpha-beta-v2"].includes(entry.result.method));
     if (endgames.length) return aggregateEndgame(endgames, elapsedMs, job.workersUsed.size, job.aiVersion);
@@ -315,11 +318,11 @@ export class AISearchScheduler {
       const candidates = rankedCandidateMap(cached.candidates);
       result = {
         action: candidates[0]?.action ?? null,
-        method: job.aiVersion === "v2" ? "belief-mcts-v2" : "so-ismcts",
+        method: SAMPLING_METHOD[job.aiVersion],
         aiVersion: job.aiVersion,
         elapsedMs: 0,
         iterations: 0,
-        ponderIterations: job.ponderIterations,
+        ponderIterations: job.aiVersion === "v3" ? cached.visits : job.ponderIterations,
         candidates: candidates.slice(0, 8),
         threads: job.workersUsed.size,
         quanta: 0,

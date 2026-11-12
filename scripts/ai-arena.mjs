@@ -1,4 +1,4 @@
-import { chooseVersionedAIAction } from "../server/ai-versions.mjs";
+import { AI_VERSIONS, chooseVersionedAIAction } from "../server/ai-versions.mjs";
 import { createSeededRng, publicStateForAI } from "../server/ai-engine.mjs";
 import { createGame, flipPiece, movePiece } from "../server/game-engine.mjs";
 
@@ -6,12 +6,17 @@ const games = Math.max(2, Number.parseInt(process.env.ARENA_GAMES ?? "12", 10) |
 const timeLimitMs = Math.max(5, Number.parseInt(process.env.ARENA_TIME_MS ?? "80", 10) || 80);
 const initialHealth = Math.max(1, Math.min(16, Number.parseInt(process.env.ARENA_HEALTH ?? "8", 10) || 8));
 const maxPlies = Math.max(40, Number.parseInt(process.env.ARENA_MAX_PLIES ?? "220", 10) || 220);
-const score = { v1: 0, v2: 0, draws: 0 };
+const first = process.env.ARENA_A ?? "v1";
+const second = process.env.ARENA_B ?? "v2";
+if (![first, second].every((version) => AI_VERSIONS.includes(version)) || first === second) {
+  throw new Error(`请指定两个不同的 AI 版本，可选 ${AI_VERSIONS.join("、")}`);
+}
+const score = { [first]: 0, [second]: 0, draws: 0 };
 const records = [];
 
 for (let gameIndex = 0; gameIndex < games; gameIndex += 1) {
   // Every adjacent pair uses the exact same board and starting turn, then swaps
-  // V1/V2 colors. This removes lucky board/color assignments from the score.
+  // the colors, keeping the opening identical for both engines.
   const pairIndex = Math.floor(gameIndex / 2);
   const gameRng = createSeededRng(0x51f15e + pairIndex * 7919);
   const game = createGame({
@@ -20,8 +25,8 @@ for (let gameIndex = 0; gameIndex < games; gameIndex += 1) {
     rng: gameRng,
     now: gameIndex * 1_000_000,
   });
-  const v2Color = gameIndex % 2 === 0 ? "blue" : "red";
-  const versionFor = (color) => color === v2Color ? "v2" : "v1";
+  const secondColor = gameIndex % 2 === 0 ? "blue" : "red";
+  const versionFor = (color) => color === secondColor ? second : first;
   let plies = 0;
 
   while (game.status === "playing" && plies < maxPlies) {
@@ -30,7 +35,7 @@ for (let gameIndex = 0; gameIndex < games; gameIndex += 1) {
     const result = chooseVersionedAIAction(publicStateForAI(game), color, {
       aiVersion,
       timeLimitMs,
-      seed: (gameIndex + 1) * 100_003 + plies * 997 + (aiVersion === "v2" ? 17 : 0),
+      seed: (pairIndex + 1) * 100_003 + plies * 997 + (aiVersion === second ? 17 : 0),
     });
     const action = result.action;
     if (!action) break;
@@ -47,7 +52,8 @@ for (let gameIndex = 0; gameIndex < games; gameIndex += 1) {
   else score.draws += 1;
   records.push({
     game: gameIndex + 1,
-    v2Color,
+    secondColor,
+    resultType: game.status === "finished" ? game.endReason : "adjudicated",
     winner: winnerVersion ?? "draw",
     plies,
     health: game.health,

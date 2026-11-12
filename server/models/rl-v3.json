@@ -1,0 +1,169 @@
+{
+  "schemaVersion": 1,
+  "featureNames": [
+    "flip",
+    "capture",
+    "push",
+    "center",
+    "quietApproach",
+    "moverEscapesThreat",
+    "exposedAfterMove",
+    "captureTargetsAfterMove",
+    "captureValue",
+    "winningCapture",
+    "poisonContracted",
+    "poisonCured",
+    "ownPoisonDeaths",
+    "flipFriendlyInDanger",
+    "flipEnemyInDanger",
+    "flipEnemyThreat",
+    "flipFriendlyThreat",
+    "flipFriendlyProbability",
+    "flipWhenBehind",
+    "captureLowHealth",
+    "flipHiddenFraction"
+  ],
+  "weights": [
+    -1.2029988547681256,
+    2.951340964113287,
+    2.0893935885766117,
+    0.5781466283736126,
+    0.6111411044031269,
+    5.613132959502322,
+    -5.892769492254208,
+    3.8230640664271536,
+    2.9909855801087954,
+    2.4015276751485617,
+    -0.2953152822141654,
+    0.7804584239255246,
+    -0.897282891184605,
+    -4.8794095046901,
+    1.6943588224728194,
+    -3.7716349277857164,
+    0.406335811477125,
+    -0.7777313062264849,
+    -2.1702351984248685,
+    2.2750112921173113,
+    -0.7488729188854136
+  ],
+  "training": {
+    "algorithm": "Self-play REINFORCE with softmax linear policy and Adam",
+    "seed": 20261112,
+    "games": 2048,
+    "plies": 248917,
+    "completedGames": 1193,
+    "maxPlies": 180,
+    "ruleSets": [
+      [],
+      [
+        "snake"
+      ],
+      [
+        "football-poison"
+      ],
+      [
+        "football-poison",
+        "snake"
+      ]
+    ],
+    "healthLevels": [
+      4,
+      8,
+      14,
+      16,
+      6,
+      10,
+      14,
+      14
+    ],
+    "discount": 0.94,
+    "reward": "0.5 * change in health lead, plus +2 for winning or -2 for losing"
+  },
+  "evaluation": {
+    "seed": 949100827,
+    "pairsPerRule": 16,
+    "initialHealth": 14,
+    "maxPlies": 180,
+    "policy": "deployed V3 policy with seeded tie breaks",
+    "results": [
+      {
+        "opponent": "uniformRandom",
+        "ruleIds": [],
+        "wins": 32,
+        "draws": 0,
+        "losses": 0,
+        "plies": 2128
+      },
+      {
+        "opponent": "uniformRandom",
+        "ruleIds": [
+          "snake"
+        ],
+        "wins": 32,
+        "draws": 0,
+        "losses": 0,
+        "plies": 2134
+      },
+      {
+        "opponent": "uniformRandom",
+        "ruleIds": [
+          "football-poison"
+        ],
+        "wins": 32,
+        "draws": 0,
+        "losses": 0,
+        "plies": 2086
+      },
+      {
+        "opponent": "uniformRandom",
+        "ruleIds": [
+          "football-poison",
+          "snake"
+        ],
+        "wins": 32,
+        "draws": 0,
+        "losses": 0,
+        "plies": 2136
+      },
+      {
+        "opponent": "captureFirst",
+        "ruleIds": [],
+        "wins": 32,
+        "draws": 0,
+        "losses": 0,
+        "plies": 2280
+      },
+      {
+        "opponent": "captureFirst",
+        "ruleIds": [
+          "snake"
+        ],
+        "wins": 32,
+        "draws": 0,
+        "losses": 0,
+        "plies": 2184
+      },
+      {
+        "opponent": "captureFirst",
+        "ruleIds": [
+          "football-poison"
+        ],
+        "wins": 32,
+        "draws": 0,
+        "losses": 0,
+        "plies": 2246
+      },
+      {
+        "opponent": "captureFirst",
+        "ruleIds": [
+          "football-poison",
+          "snake"
+        ],
+        "wins": 32,
+        "draws": 0,
+        "losses": 0,
+        "plies": 2154
+      }
+    ]
+  }
+}

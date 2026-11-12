@@ -154,8 +154,10 @@ test("房主可在开局前选择并保留 V1 或 V2 AI", () => {
 
   manager.setAIVersion(host.client, "v2");
   assert.equal(manager.clients.get(aiId).aiVersion, "v2");
+  manager.setAIVersion(host.client, "v3");
+  assert.equal(manager.clients.get(aiId).aiVersion, "v3");
   assert.throws(() => manager.setAIVersion(guest.client, "v1"), { code: "not_in_room" });
-  assert.throws(() => manager.setAIVersion(host.client, "v3"), { code: "bad_ai_version" });
+  assert.throws(() => manager.setAIVersion(host.client, "v4"), { code: "bad_ai_version" });
 });
 
 test("只有房主可在无人准备时设置 1–16 血量", () => {

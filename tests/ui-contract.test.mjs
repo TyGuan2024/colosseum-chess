@@ -23,6 +23,7 @@ test("对局界面包含我方标记、AI、观战和双侧吃子列表入口", 
   assert.match(html, /id="ai-version-setting"/);
   assert.match(html, /data-ai-version="v1"/);
   assert.match(html, /data-ai-version="v2"/);
+  assert.match(html, /data-ai-version="v3"/);
   assert.match(app, /set_ai_version/);
   assert.match(app, /ponderIterations/);
   assert.match(css, /\.captured-item/);
